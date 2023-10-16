@@ -1,71 +1,56 @@
-Fibonacci com recursão:
+A) Elabore uma consulta que retorne os códigos de barras dos produtos cadastrados pela primeira vez no banco nos últimos 10 dias.
 
-import sys
+SELECT "Código de barras"
 
-def fibonacci(n):
-    if n <= 0:
-        return 0
-    elif n == 1:
-        return 1
-    else:
-        return fibonacci(n - 1) + fibonacci(n - 2)
+FROM Produto
 
-if len(sys.argv) != 2:
-    print("Uso: python my_script.py <n>")
-else:
-    try:
-        n = int(sys.argv[1])
-        if n < 0:
-            print("Por favor, insira um número inteiro positivo.")
-        else:
-            result = fibonacci(n)
-            print(f"O {n}-ésimo valor da sequência de Fibonacci é: {result}")
-    except ValueError:
-        print("Por favor, insira um número inteiro positivo.")
+WHERE "Data cadastro" >= SYSDATE - 10;
 
 
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+B) Elabore uma consulta que retorne os nomes das origens que tiveram algum produto cadastrado ou atualizado no mês de março de 2020.
 
-Consumindo a API Star Wars e salvando em arquivos JSON:
+SELECT DISTINCT Origem.Nome
 
-import requests
-import json
+FROM Produtoinfo
 
-# Função para obter os personagens que aparecem em 4 ou mais filmes
-def get_popular_characters():
-    url = "https://swapi.dev/api/people/"
-    popular_characters = []
-    
-    while url:
-        response = requests.get(url)
-        data = response.json()
-        for character in data["results"]:
-            if len(character["films"]) >= 4:
-                popular_characters.append(character)
-        url = data["next"]
-    
-    with open("popular_characters.json", "w") as outfile:
-        json.dump(popular_characters, outfile, indent=4)
+JOIN Origem ON Produtoinfo.IDOrigem = Origem.ID
 
-# Função para obter os planetas com 5 ou mais moradores
-def get_populous_planets():
-    url = "https://swapi.dev/api/planets/"
-    populous_planets = []
-    
-    while url:
-        response = requests.get(url)
-        data = response.json()
-        for planet in data["results"]:
-            if len(planet["residents"]) >= 5:
-                populous_planets.append(planet)
-        url = data["next"]
-    
-    with open("populous_planets.json", "w") as outfile:
-        json.dump(populous_planets, outfile, indent=4)
-
-get_popular_characters()
-get_populous_planets()
+WHERE TO_CHAR("Data cadastro", 'YYYY-MM') = '2020-03' OR TO_CHAR("Data Atualização", 'YYYY-MM') = '2020-03';
 
 
 
-Certifique-se de que você tem a biblioteca requests instalada para executar o segundo script. Você pode instalá-la com pip install requests. Ambos os scripts foram divididos em funções para facilitar a leitura e manutenção do código. Eles também criam arquivos JSON na raiz do projeto com os dados encontrados.
+C) Houve um erro na atualização da origem "DISTRIBUIDORA TESTE" em que todos os produtos do fabricante "JOAO" foram enviados com nome "MARIA". Faça um update que troque os produtos da "DISTRIBUIDORA TESTE" com fabricante "MARIA" para o fabricante "JOAO".
+
+UPDATE Produtoinfo
+
+SET IDFabricante = (SELECT ID FROM Fabricante WHERE Nome = 'JOAO')
+
+WHERE IDOrigem = (SELECT ID FROM Origem WHERE Nome = 'DISTRIBUIDORA TESTE')
+
+AND IDFabricante = (SELECT ID FROM Fabricante WHERE Nome = 'MARIA');
+
+
+d) Elabore uma consulta que retorne os códigos de barras, descrição, nome do fabricante e código interno de todos os produtos cadastrados de acordo com a ordem de preferência, onde um código de barras aparecerá apenas uma vez no resultado com as informações da origem de maior preferência disponível para ele.
+
+WITH PreferenciaOrigem AS (
+
+  SELECT IDProduto, IDOrigem, Preferencia,
+  
+         ROW_NUMBER() OVER (PARTITION BY IDProduto ORDER BY Preferencia ASC) AS preferencia_rank
+         
+  FROM Origem
+  
+)
+SELECT P."Código de barras", PI.Descrição, F.Nome AS "Nome do Fabricante", PI."Código Interno"
+
+FROM Produto P
+
+JOIN Produtoinfo PI ON P.ID = PI.IDProduto
+
+JOIN Fabricante F ON PI.IDFabricante = F.ID
+
+JOIN PreferenciaOrigem PO ON PI.IDProduto = PO.IDProduto
+
+WHERE PO.preferencia_rank = 1;
+
+
